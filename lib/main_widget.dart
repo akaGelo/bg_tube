@@ -84,7 +84,7 @@ class MainWidgetState extends State<MainWidget>
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 1500),
       child: _video is Video
-          ? YtVideoWidget(_video!)
+          ? YtVideoWidget(_video!,key: ValueKey(_video),)
           : PlaceholderVideoWidget(_incomeUrl),
     );
   }

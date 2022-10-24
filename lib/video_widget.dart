@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:bg_tube/speed_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drop_shadow_image/drop_shadow_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
@@ -22,11 +26,15 @@ class YtWidgetState extends State<YtVideoWidget>
   late YoutubeExplode _yt;
   late AudioPlayer _audioPlayer;
 
+  // late HttpClient httpClient = HttpClient();
+
   PlayerState? _playerState;
 
   late Duration _position = Duration.zero;
   late double _playbackRate = 1.0;
   Duration? _duration;
+
+  List<StreamSubscription> _audioStreamSubscriptions = [];
 
   @override
   void initState() {
@@ -34,19 +42,28 @@ class YtWidgetState extends State<YtVideoWidget>
     _audioPlayer = AudioPlayer();
     _yt = YoutubeExplode();
     _playPauseAnimationController = AnimationController(
-        duration: const Duration(milliseconds: 1000), vsync: this);
+        duration: const Duration(milliseconds: 500), vsync: this);
 
-    _audioPlayer.onPlayerStateChanged.listen(_onStateChange);
-    _audioPlayer.onPositionChanged.listen(_onPositionsChange);
-    _audioPlayer.onDurationChanged.listen(_onDurationLoad);
-    _audioPlayer.onPlayerComplete.listen(_onComplete);
+    _audioStreamSubscriptions
+        .add(_audioPlayer.onPlayerStateChanged.listen(_onStateChange));
+    _audioStreamSubscriptions
+        .add(_audioPlayer.onPositionChanged.listen(_onPositionsChange));
+    _audioStreamSubscriptions
+        .add(_audioPlayer.onDurationChanged.listen(_onDurationLoad));
 
-    initPlayer();
+    initSourceAndPlayer();
   }
 
   void _onStateChange(PlayerState s) {
     setState(() {
       _playerState = s;
+      if (_playerState == PlayerState.completed) {
+        _audioPlayer.stop();
+        _playPauseAnimationController.reverse();
+        _position == Duration.zero;
+        _duration == null;
+        initSourceAndPlayer();
+      }
     });
   }
 
@@ -64,29 +81,20 @@ class YtWidgetState extends State<YtVideoWidget>
   }
 
   void _onDurationLoad(event) {
+    if (null != _duration) {
+      return;
+    }
+
     setState(() {
       _playerState = PlayerState.stopped;
       _duration = event;
     });
+    _playOnTap();
   }
-
-  void _onComplete(event) {
-    _playPauseAnimationController.reverse();
-    _audioPlayer.seek(Duration.zero);
-  }
-
-  //TODO надо реализовать кастомный загрузчик что бы работала перемотка
-  // Future<void> _onSetSeek(double value) async {
-  //   if (null == _duration) {
-  //     return;
-  //   }
-  //   var duration = Duration(seconds: (_duration!.inSeconds * value).round());
-  //   await _audioPlayer.seek(duration);
-  //   _onPositionsChange(duration);
-  // }
 
   @override
   void dispose() {
+    _audioStreamSubscriptions.forEach((element) => element.cancel());
     _yt.close();
     _playPauseAnimationController.dispose();
     _audioPlayer.dispose();
@@ -118,7 +126,7 @@ class YtWidgetState extends State<YtVideoWidget>
   }
 
   void _playOnTap() {
-    if (_playPauseAnimationController.isCompleted) {
+    if (PlayerState.playing == _playerState) {
       _playPauseAnimationController.reverse();
       _audioPlayer.pause();
     } else {
@@ -187,13 +195,19 @@ class YtWidgetState extends State<YtVideoWidget>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(_formatDuration(_position)),
+              if (null != _duration &&
+                  (PlayerState.playing == _playerState ||
+                      PlayerState.paused == _playerState))
+                Text(_formatDuration(_position))
+              else
+                Text(""), // отступ, что б не дергалось ничего
               if (null != _duration) Text(_formatDuration(_duration!)),
             ],
           ),
           LinearProgressIndicator(
             value: _progress(),
           ),
+          const SizedBox(height: 20)
         ],
       ),
     );
@@ -206,9 +220,10 @@ class YtWidgetState extends State<YtVideoWidget>
     return _position.inSeconds / _duration!.inSeconds;
   }
 
-  Future<void> initPlayer() async {
+  Future<void> initSourceAndPlayer() async {
     var manifest = await _yt.videos.streamsClient.getManifest(widget.video.id);
-    var url = await manifest.audioOnly.withHighestBitrate().url;
+    var sortByBitrate = manifest.audioOnly.sortByBitrate();
+    var url = await sortByBitrate.last.url;
     _audioPlayer.setSource(UrlSource(url.toString()));
   }
 
