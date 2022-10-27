@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'package:bg_tube/placeholder_widget.dart';
+import 'package:bg_tube/placeholder/placeholder_widget.dart';
 import 'package:bg_tube/video_widget.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
