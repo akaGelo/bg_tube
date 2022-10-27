@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
-import 'audio_service.dart';
+import '../audio_service.dart';
 
 class SpeedWidget extends StatefulWidget {
   AudioPlayerHandler _audioHandler;
@@ -10,10 +10,10 @@ class SpeedWidget extends StatefulWidget {
   SpeedWidget(this._audioHandler, {Key? key}) : super(key: key);
 
   @override
-  SpeedWidgetState createState() => SpeedWidgetState();
+  _SpeedWidgetState createState() => _SpeedWidgetState();
 }
 
-class SpeedWidgetState extends State<SpeedWidget> {
+class _SpeedWidgetState extends State<SpeedWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(

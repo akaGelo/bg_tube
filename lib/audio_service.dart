@@ -47,9 +47,8 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
         duration: video.duration);
     mediaItem.add(item);
     await _player.setAudioSource(AudioSource.uri(audio.url));
-    // return _player.play();
+    return _player.play();
   }
-
 
   PlaybackState _transformEvent(PlaybackEvent event) {
     return PlaybackState(

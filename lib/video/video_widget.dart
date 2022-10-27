@@ -3,16 +3,18 @@ import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:auto_size_text/auto_size_text.dart';
-import 'package:bg_tube/speed_widget.dart';
+import 'package:bg_tube/video/speed_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drop_shadow_image/drop_shadow_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:move_to_background/move_to_background.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:rxdart/rxdart.dart';
 
-import 'audio_service.dart';
+import '../audio_service.dart';
 
 // import 'audio_service_common.dart';
 // import 'main3.dart';
@@ -24,10 +26,10 @@ class YtVideoWidget extends StatefulWidget {
   YtVideoWidget(this.video, this._audioHandler, {Key? key}) : super(key: key);
 
   @override
-  YtWidgetState createState() => YtWidgetState();
+  _YtWidgetState createState() => _YtWidgetState();
 }
 
-class YtWidgetState extends State<YtVideoWidget>
+class _YtWidgetState extends State<YtVideoWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _playPauseAnimationController;
 
@@ -35,7 +37,6 @@ class YtWidgetState extends State<YtVideoWidget>
   void initState() {
     super.initState();
     widget._audioHandler.playAudio(widget.video);
-    ;
   }
 
   @override
@@ -49,15 +50,15 @@ class YtWidgetState extends State<YtVideoWidget>
       child: AspectRatio(
         aspectRatio: 1,
         child: Container(
-          margin: const EdgeInsets.all(8),
+          margin: const EdgeInsets.symmetric(horizontal: 8),
           width: double.infinity,
           child: CachedNetworkImage(
             imageUrl: widget.video.thumbnails.standardResUrl,
             imageBuilder: (context, imageProvider) => DropShadowImage(
-              offset: Offset(0, 8),
+              offset: Offset(0, 2),
               scale: 1,
-              blurRadius: 12,
-              borderRadius: 20,
+              blurRadius: 4,
+              borderRadius: 8,
               image: Image(
                 image: imageProvider,
               ),
@@ -75,54 +76,67 @@ class YtWidgetState extends State<YtVideoWidget>
       );
 
   Widget _centralIcon() {
-    return StreamBuilder<PlaybackState>(
-      stream: widget._audioHandler.playbackState,
-      builder: (context, snapshot) {
-        if (null == snapshot.data) {
-          return _loadingIndicator();
-        }
-        bool playing = snapshot.data!.playing;
+    return SizedBox(
+      height: 64,
+      width: 80,
+      child: StreamBuilder<PlaybackState>(
+        stream: widget._audioHandler.playbackState,
+        builder: (context, snapshot) {
+          if (null == snapshot.data) {
+            return _loadingIndicator();
+          }
+          bool playing = snapshot.data!.playing;
 
-        var processingState =
-            snapshot.data!.processingState ?? AudioProcessingState.idle;
-        if (AudioProcessingState.ready != processingState) {
-          return _loadingIndicator();
-        }
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (playing)
-              _button(Icons.pause, widget._audioHandler.pause)
-            else
-              _button(Icons.play_arrow, widget._audioHandler.play),
-          ],
-        );
-      },
+          var processingState =
+              snapshot.data!.processingState ?? AudioProcessingState.idle;
+          if (AudioProcessingState.ready != processingState) {
+            return _loadingIndicator();
+          }
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (playing)
+                _button(Icons.pause, widget._audioHandler.pause)
+              else
+                _button(Icons.play_arrow, widget._audioHandler.play),
+            ],
+          );
+        },
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Column(
-        children: <Widget>[
-          _coverWidget(),
-          const SizedBox(height: 16),
-          AutoSizeText(widget.video.title,
-              maxLines: 2,
-              style: Theme.of(context).textTheme.headline5,
-              textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          AutoSizeText(widget.video.author,
-              maxLines: 1,
-              style: Theme.of(context).textTheme.headline4,
-              textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          _buttons_row(context),
-          _audioPprogress(),
-          const SizedBox(height: 20)
-        ],
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          MoveToBackground.moveTaskToBack();
+          // Navigator.pop(context);
+        },
+        tooltip: 'Back ',
+        child: const Icon(Icons.u_turn_left_sharp),
+      ),
+      body: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Column(
+          children: <Widget>[
+            _coverWidget(),
+            AutoSizeText(widget.video.title,
+                maxLines: 3,
+                style: Theme.of(context).textTheme.headline5,
+                textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            AutoSizeText(widget.video.author,
+                maxLines: 1,
+                style: Theme.of(context).textTheme.headline6,
+                textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            _buttons_row(context),
+            _audioPprogress(),
+            const SizedBox(height: 20)
+          ],
+        ),
       ),
     );
   }
@@ -197,6 +211,9 @@ class YtWidgetState extends State<YtVideoWidget>
   }
 
   Widget _loadingIndicator() {
-    return CircularProgressIndicator();
+    return SizedBox(
+      height: 64,
+      child: Center(child: CircularProgressIndicator()),
+    );
   }
 }

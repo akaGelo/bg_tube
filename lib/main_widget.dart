@@ -1,8 +1,9 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:bg_tube/placeholder/placeholder_widget.dart';
-import 'package:bg_tube/video_widget.dart';
+import 'package:bg_tube/video/video_widget.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:move_to_background/move_to_background.dart';
@@ -23,7 +24,6 @@ class MainWidget extends StatefulWidget {
 
 class MainWidgetState extends State<MainWidget>
     with SingleTickerProviderStateMixin {
-  Video? _video; // загружаемое видео
   String? _incomeUrl; //ссылка из диалога поделиться
 
   @override
@@ -55,8 +55,18 @@ class MainWidgetState extends State<MainWidget>
 
     try {
       var video = await YoutubeExplode().videos.get(value);
+      await precacheImage(
+          CachedNetworkImageProvider(video.thumbnails.standardResUrl), context);
+
+      var result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) =>
+                Scaffold(body: YtVideoWidget(video, widget._audioHandler))),
+      );
+
       setState(() {
-        _video = video;
+        _incomeUrl = null;
       });
     } catch (e) {
       showError(e);
@@ -65,35 +75,6 @@ class MainWidgetState extends State<MainWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _body(context),
-      floatingActionButton: null != _video
-          ? FloatingActionButton(
-              onPressed: () => MoveToBackground.moveTaskToBack(),
-              tooltip: 'Back ',
-              child: const Icon(Icons.u_turn_left_sharp),
-            )
-          : Container(),
-    );
-  }
-
-  Widget _body(BuildContext context) {
-    return AnimatedSwitcher(
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return SlideTransition(
-            position: Tween<Offset>(
-                    begin: const Offset(1.2, 0), end: const Offset(0, 0))
-                .animate(animation),
-            child: child);
-      },
-      duration: const Duration(milliseconds: 500),
-      child: _video is Video
-          ? YtVideoWidget(
-              _video!,
-              widget._audioHandler,
-              key: ValueKey(_video),
-            )
-          : PlaceholderVideoWidget(_incomeUrl),
-    );
+    return Scaffold(body: PlaceholderVideoWidget(_incomeUrl));
   }
 }
