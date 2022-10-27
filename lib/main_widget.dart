@@ -48,6 +48,10 @@ class MainWidgetState extends State<MainWidget>
     if (null == value) {
       return;
     }
+    if (null != _incomeUrl) {
+      //уже что то слушает, надо закрыть плеер
+      Navigator.pop(context, true);
+    }
 
     setState(() {
       _incomeUrl = value;
@@ -55,8 +59,6 @@ class MainWidgetState extends State<MainWidget>
 
     try {
       var video = await YoutubeExplode().videos.get(value);
-      await precacheImage(
-          CachedNetworkImageProvider(video.thumbnails.standardResUrl), context);
 
       var result = await Navigator.push(
         context,
@@ -65,9 +67,12 @@ class MainWidgetState extends State<MainWidget>
                 Scaffold(body: YtVideoWidget(video, widget._audioHandler))),
       );
 
-      setState(() {
-        _incomeUrl = null;
-      });
+      if (null == result) {
+        // это замена плеера
+        setState(() {
+          _incomeUrl = null;
+        });
+      }
     } catch (e) {
       showError(e);
     }
