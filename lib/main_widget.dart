@@ -1,19 +1,21 @@
 import 'dart:async';
 
-import 'package:audioplayers/audioplayers.dart';
-import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:bg_tube/placeholder_widget.dart';
 import 'package:bg_tube/video_widget.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:drop_shadow_image/drop_shadow_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:move_to_background/move_to_background.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
+import 'audio_service.dart';
+
+@immutable
 class MainWidget extends StatefulWidget {
-  const MainWidget({Key? key}) : super(key: key);
+  final AudioPlayerHandler _audioHandler;
+
+  const MainWidget(this._audioHandler, {Key? key}) : super(key: key);
 
   @override
   MainWidgetState createState() => MainWidgetState();
@@ -26,24 +28,19 @@ class MainWidgetState extends State<MainWidget>
 
   @override
   void initState() {
-    ReceiveSharingIntent.getTextStream() //for running
-        .listen((String value) => setIncomeLink(value), onError: (err) {
-      showError();
-    });
+    super.initState();
 
-    ReceiveSharingIntent.getInitialText() // for start
-        .then((value) => setIncomeLink(value))
-        .onError((error, stackTrace) {
-      showError();
-    });
+    ReceiveSharingIntent.getInitialText() // on start app
+        .asStream()
+        .listen(setIncomeLink, onError: showError);
 
-    // Future.delayed(Duration(seconds: 2),
-    //     () => setIncomeLink("https://www.youtube.com/watch?v=BMCNZ9ciO3Y"));
+    ReceiveSharingIntent.getTextStream() //for started app
+        .listen(setIncomeLink, onError: showError);
   }
 
-  void showError() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text("Load url problem"),
+  void showError(err) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppLocalizations.of(context)!.badUrl),
     ));
   }
 
@@ -53,7 +50,7 @@ class MainWidgetState extends State<MainWidget>
     }
 
     setState(() {
-      if (null != value) _incomeUrl = value;
+      _incomeUrl = value;
     });
 
     try {
@@ -62,7 +59,7 @@ class MainWidgetState extends State<MainWidget>
         _video = video;
       });
     } catch (e) {
-      showError();
+      showError(e);
     }
   }
 
@@ -70,21 +67,32 @@ class MainWidgetState extends State<MainWidget>
   Widget build(BuildContext context) {
     return Scaffold(
       body: _body(context),
-      floatingActionButton: _video is Video
+      floatingActionButton: null != _video
           ? FloatingActionButton(
               onPressed: () => MoveToBackground.moveTaskToBack(),
               tooltip: 'Back ',
               child: const Icon(Icons.u_turn_left_sharp),
             )
-          : Container(), // This trailing comma makes auto-formatting nicer for build methods.
+          : Container(),
     );
   }
 
   Widget _body(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 1500),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return SlideTransition(
+            position: Tween<Offset>(
+                    begin: const Offset(1.2, 0), end: const Offset(0, 0))
+                .animate(animation),
+            child: child);
+      },
+      duration: const Duration(milliseconds: 500),
       child: _video is Video
-          ? YtVideoWidget(_video!,key: ValueKey(_video),)
+          ? YtVideoWidget(
+              _video!,
+              widget._audioHandler,
+              key: ValueKey(_video),
+            )
           : PlaceholderVideoWidget(_incomeUrl),
     );
   }

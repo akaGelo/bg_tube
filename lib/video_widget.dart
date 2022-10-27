@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:audioplayers/audioplayers.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:bg_tube/speed_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,11 +10,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import 'package:rxdart/rxdart.dart';
+
+import 'audio_service.dart';
+
+// import 'audio_service_common.dart';
+// import 'main3.dart';
 
 class YtVideoWidget extends StatefulWidget {
   Video video;
+  AudioPlayerHandler _audioHandler;
 
-  YtVideoWidget(this.video, {Key? key}) : super(key: key);
+  YtVideoWidget(this.video, this._audioHandler, {Key? key}) : super(key: key);
 
   @override
   YtWidgetState createState() => YtWidgetState();
@@ -23,81 +30,17 @@ class YtVideoWidget extends StatefulWidget {
 class YtWidgetState extends State<YtVideoWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _playPauseAnimationController;
-  late YoutubeExplode _yt;
-  late AudioPlayer _audioPlayer;
-
-  // late HttpClient httpClient = HttpClient();
-
-  PlayerState? _playerState;
-
-  late Duration _position = Duration.zero;
-  late double _playbackRate = 1.0;
-  Duration? _duration;
-
-  List<StreamSubscription> _audioStreamSubscriptions = [];
 
   @override
   void initState() {
     super.initState();
-    _audioPlayer = AudioPlayer();
-    _yt = YoutubeExplode();
-    _playPauseAnimationController = AnimationController(
-        duration: const Duration(milliseconds: 500), vsync: this);
-
-    _audioStreamSubscriptions
-        .add(_audioPlayer.onPlayerStateChanged.listen(_onStateChange));
-    _audioStreamSubscriptions
-        .add(_audioPlayer.onPositionChanged.listen(_onPositionsChange));
-    _audioStreamSubscriptions
-        .add(_audioPlayer.onDurationChanged.listen(_onDurationLoad));
-
-    initSourceAndPlayer();
-  }
-
-  void _onStateChange(PlayerState s) {
-    setState(() {
-      _playerState = s;
-      if (_playerState == PlayerState.completed) {
-        _audioPlayer.stop();
-        _playPauseAnimationController.reverse();
-        _position == Duration.zero;
-        _duration == null;
-        initSourceAndPlayer();
-      }
-    });
-  }
-
-  void _onPositionsChange(event) {
-    setState(() {
-      _position = event;
-    });
-  }
-
-  void _onSetPlaybackRate(rate) {
-    setState(() {
-      _playbackRate = rate;
-    });
-    _audioPlayer.setPlaybackRate(rate);
-  }
-
-  void _onDurationLoad(event) {
-    if (null != _duration) {
-      return;
-    }
-
-    setState(() {
-      _playerState = PlayerState.stopped;
-      _duration = event;
-    });
-    _playOnTap();
+    widget._audioHandler.playAudio(widget.video);
+    ;
   }
 
   @override
   void dispose() {
-    _audioStreamSubscriptions.forEach((element) => element.cancel());
-    _yt.close();
     _playPauseAnimationController.dispose();
-    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -125,30 +68,37 @@ class YtWidgetState extends State<YtVideoWidget>
     );
   }
 
-  void _playOnTap() {
-    if (PlayerState.playing == _playerState) {
-      _playPauseAnimationController.reverse();
-      _audioPlayer.pause();
-    } else {
-      _playPauseAnimationController.forward();
-      _audioPlayer.resume();
-    }
-  }
+  IconButton _button(IconData iconData, VoidCallback onPressed) => IconButton(
+        icon: Icon(iconData),
+        iconSize: 64.0,
+        onPressed: onPressed,
+      );
 
   Widget _centralIcon() {
-    if (null != _playerState) {
-      return InkWell(
-        onTap: _playOnTap,
-        child: AnimatedIcon(
-          icon: AnimatedIcons.play_pause,
-          progress: _playPauseAnimationController,
-          size: 64,
-          color: Theme.of(context).primaryColor,
-        ),
-      );
-    } else {
-      return CircularProgressIndicator();
-    }
+    return StreamBuilder<PlaybackState>(
+      stream: widget._audioHandler.playbackState,
+      builder: (context, snapshot) {
+        if (null == snapshot.data) {
+          return _loadingIndicator();
+        }
+        bool playing = snapshot.data!.playing;
+
+        var processingState =
+            snapshot.data!.processingState ?? AudioProcessingState.idle;
+        if (AudioProcessingState.ready != processingState) {
+          return _loadingIndicator();
+        }
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (playing)
+              _button(Icons.pause, widget._audioHandler.pause)
+            else
+              _button(Icons.play_arrow, widget._audioHandler.play),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -169,76 +119,84 @@ class YtWidgetState extends State<YtVideoWidget>
               style: Theme.of(context).textTheme.headline4,
               textAlign: TextAlign.center),
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                children: [
-                  Icon(Icons.timer, color: Colors.grey),
-                  Text(0.00.toStringAsFixed(2),
-                      style: Theme.of(context).textTheme.labelSmall),
-                ],
-              ),
-              _centralIcon(),
-              InkWell(
-                child: Column(
-                  children: [
-                    Icon(Icons.speed, color: Colors.grey),
-                    Text(_playbackRate.toStringAsFixed(2),
-                        style: Theme.of(context).textTheme.labelSmall),
-                  ],
-                ),
-                onTap: () => _showSpeedModal(),
-              )
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (null != _duration &&
-                  (PlayerState.playing == _playerState ||
-                      PlayerState.paused == _playerState))
-                Text(_formatDuration(_position))
-              else
-                Text(""), // отступ, что б не дергалось ничего
-              if (null != _duration) Text(_formatDuration(_duration!)),
-            ],
-          ),
-          LinearProgressIndicator(
-            value: _progress(),
-          ),
+          _buttons_row(context),
+          _audioPprogress(),
           const SizedBox(height: 20)
         ],
       ),
     );
   }
 
-  double _progress() {
-    if (null == _duration) {
-      return 0;
-    }
-    return _position.inSeconds / _duration!.inSeconds;
+  StreamBuilder<PositionData> _audioPprogress() {
+    return StreamBuilder<PositionData>(
+      stream: _mediaStateStream,
+      builder: (context, snapshot) {
+        final positionState = snapshot.data;
+        return ProgressBar(
+          progress: positionState?.position ?? Duration.zero,
+          buffered: positionState?.bufferedPosition ?? Duration.zero,
+          total: positionState?.duration ?? Duration.zero,
+          onSeek: (position) {
+            widget._audioHandler.seek(position);
+          },
+        );
+      },
+    );
   }
 
-  Future<void> initSourceAndPlayer() async {
-    var manifest = await _yt.videos.streamsClient.getManifest(widget.video.id);
-    var sortByBitrate = manifest.audioOnly.sortByBitrate();
-    var url = await sortByBitrate.last.url;
-    _audioPlayer.setSource(UrlSource(url.toString()));
+  Row _buttons_row(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          children: [
+            Icon(Icons.timer, color: Colors.grey),
+            Text("00:00", style: Theme.of(context).textTheme.labelSmall),
+          ],
+        ),
+        _centralIcon(),
+        InkWell(
+          child: Column(
+            children: [
+              Icon(Icons.speed, color: Colors.grey),
+              StreamBuilder<double>(
+                  stream: widget._audioHandler.playbackState
+                      .map((state) => state.speed)
+                      .distinct(),
+                  builder: (context, snapshot) {
+                    final speed = snapshot.data ?? 0;
+                    return Text(
+                      speed.toStringAsFixed(2),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    );
+                  }),
+            ],
+          ),
+          onTap: () => _showSpeedModal(),
+        )
+      ],
+    );
   }
 
-  String _formatDuration(Duration duration) {
-    String str = duration.toString();
-    int d = str.lastIndexOf(".");
-    return str.substring(0, d);
+  Stream<PositionData> get _mediaStateStream {
+    return Rx.combineLatest3<MediaItem?, PlaybackState, Duration, PositionData>(
+        widget._audioHandler.mediaItem,
+        widget._audioHandler.playbackState,
+        AudioService.position, (mediaItem, playbackState, position) {
+      return PositionData(
+          position, playbackState.bufferedPosition, mediaItem!.duration);
+    });
   }
 
   Future<void> _showSpeedModal() async {
-    double rate = await showModalBottomSheet(
+    return showModalBottomSheet(
         context: context,
         builder: (context) {
-          return SpeedWidget(_playbackRate);
+          return SpeedWidget(widget._audioHandler);
         });
-    _onSetPlaybackRate(rate);
+  }
+
+  Widget _loadingIndicator() {
+    return CircularProgressIndicator();
   }
 }
