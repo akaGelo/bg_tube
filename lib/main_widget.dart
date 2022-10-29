@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:bg_tube/placeholder/placeholder_widget.dart';
@@ -85,7 +86,10 @@ class LoadingWidgetState extends State<LoadingWidget>
               key: ValueKey(video),
             )));
 
-    logger.w("Wideo player closed $result");
+    if (AudioProcessingState.completed == result) {
+      _setIncomeUrl(null);
+    }
+    logger.w("Video player closed $result");
   }
 
   bool _setIncomeUrl(String? value) {

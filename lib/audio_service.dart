@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:appmetrica_plugin/appmetrica_plugin.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:youtube_explode_dart/src/videos/video.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import 'package:rxdart/rxdart.dart';
 
 class PositionData {
   final Duration position;
@@ -15,6 +18,10 @@ class PositionData {
 class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
   final _player = AudioPlayer();
   final YoutubeExplode _yt = YoutubeExplode();
+  final BehaviorSubject<Duration> sleepTimerState =
+      BehaviorSubject.seeded(Duration(seconds: 0));
+
+  Timer? _sleepTimer;
 
   AudioPlayerHandler() {
     _player.playbackEventStream.map(_transformEvent).pipe(playbackState);
@@ -32,12 +39,33 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
     return _player.pause();
   }
 
+  void pauseAfterDelay(Duration duration) {
+    AppMetrica.reportEventWithMap('Pause pause after delay', {'duration': duration.inMinutes});
+    _sleepTimer?.cancel();
+
+    if (duration.inSeconds < 1) {
+      _sleepTimer?.cancel();
+      sleepTimerState.add(Duration.zero);
+      return; // выключаем таймер
+    }
+    sleepTimerState.add(duration);
+    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (Timer timer) {
+      sleepTimerState.add(Duration(seconds: duration.inSeconds - timer.tick));
+
+      if (timer.tick >= duration.inSeconds) {
+        pause();
+        timer.cancel();
+      }
+    });
+  }
+
   @override
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future<void> stop() async {
     AppMetrica.reportEvent('Stop player');
+    _sleepTimer?.cancel();
     await _player.stop();
     return _player.seek(Duration.zero);
   }

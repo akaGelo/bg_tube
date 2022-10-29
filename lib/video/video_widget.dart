@@ -5,6 +5,7 @@ import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:bg_tube/ext/yt_ext.dart';
 import 'package:bg_tube/video/speed_widget.dart';
+import 'package:bg_tube/video/sleeptimer_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,11 +24,13 @@ final logger = Logger();
 
 const int exitErrorCode = -1;
 
+@immutable
 class YtVideoWidget extends StatefulWidget {
-  Video video;
-  AudioPlayerHandler _audioHandler;
+  final Video video;
+  final AudioPlayerHandler _audioHandler;
 
-  YtVideoWidget(this.video, this._audioHandler, {Key? key}) : super(key: key);
+  const YtVideoWidget(this.video, this._audioHandler, {Key? key})
+      : super(key: key);
 
   @override
   _YtWidgetState createState() => _YtWidgetState();
@@ -35,16 +38,16 @@ class YtVideoWidget extends StatefulWidget {
 
 class _YtWidgetState extends State<YtVideoWidget>
     with SingleTickerProviderStateMixin {
-  late StreamSubscription<PlaybackState> stateListener;
+  late StreamSubscription<PlaybackState> _stateListener;
 
   @override
   void initState() {
     super.initState();
     widget._audioHandler.playAudio(widget.video);
-    stateListener = widget._audioHandler.playbackState.stream.listen((event) {
+    _stateListener = widget._audioHandler.playbackState.stream.listen((event) {
       if (event.processingState == AudioProcessingState.idle &&
           event.position.inSeconds > 1) {
-        Navigator.pop(context);
+        Navigator.pop(context, AudioProcessingState.idle);
       }
     });
   }
@@ -52,7 +55,7 @@ class _YtWidgetState extends State<YtVideoWidget>
   @override
   void dispose() {
     super.dispose();
-    stateListener.cancel();
+    _stateListener.cancel();
   }
 
   @override
@@ -66,17 +69,17 @@ class _YtWidgetState extends State<YtVideoWidget>
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
             MoveToBackground.moveTaskToBack();
-            // Navigator.pop(context);
           },
           tooltip: 'Back ',
           child: const Icon(Icons.u_turn_left_sharp),
         ),
-        body: Container(
-          child: Column(
-            children: <Widget>[
-              _coverWidget(),
-              const SizedBox(height: 24),
-              Padding(
+        resizeToAvoidBottomInset: false,
+        body: Column(
+          children: <Widget>[
+            _coverWidget(),
+            const SizedBox(height: 24),
+            Expanded(
+              child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
@@ -91,13 +94,19 @@ class _YtWidgetState extends State<YtVideoWidget>
                         textAlign: TextAlign.center),
                     const SizedBox(height: 20),
                     _buttonsRow(context),
-                    _audioPprogress(),
-                    const SizedBox(height: 20)
+                    _audioProgress(),
+                    const SizedBox(height: 8),
+                    Expanded(
+                        child: SingleChildScrollView(
+                            child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(widget.video.description),
+                    ))),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -132,7 +141,7 @@ class _YtWidgetState extends State<YtVideoWidget>
         ),
         Positioned(
             left: -width / 4,
-            child: _moveButto(
+            child: _moveButton(
                 width,
                 height,
                 Icons.keyboard_double_arrow_left_rounded,
@@ -140,7 +149,7 @@ class _YtWidgetState extends State<YtVideoWidget>
                 () => widget._audioHandler.moveToLeft())),
         Positioned(
             right: -width / 4,
-            child: _moveButto(
+            child: _moveButton(
                 width,
                 height,
                 Icons.keyboard_double_arrow_right_rounded,
@@ -150,7 +159,7 @@ class _YtWidgetState extends State<YtVideoWidget>
     );
   }
 
-  ClipOval _moveButto(
+  ClipOval _moveButton(
       double width, double height, IconData icon, EdgeInsets edge, onTap) {
     return ClipOval(
       child: Material(
@@ -212,7 +221,7 @@ class _YtWidgetState extends State<YtVideoWidget>
     );
   }
 
-  StreamBuilder<PositionData> _audioPprogress() {
+  StreamBuilder<PositionData> _audioProgress() {
     return StreamBuilder<PositionData>(
       stream: _mediaStateStream,
       builder: (context, snapshot) {
@@ -233,14 +242,26 @@ class _YtWidgetState extends State<YtVideoWidget>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          children: [
-            Icon(Icons.timer, color: Colors.grey),
-            Text("00:00", style: Theme.of(context).textTheme.labelSmall),
-          ],
+        InkWell(
+          onTap: _showSleepTimerModal,
+          child: Column(
+            children: [
+              const Icon(Icons.timer, color: Colors.grey),
+              StreamBuilder<Duration>(
+                  stream: widget._audioHandler.sleepTimerState,
+                  builder: (context, snapshot) {
+                    final duration = snapshot.data ?? Duration.zero;
+                    return Text(
+                      duration.inMinuteFormat,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    );
+                  }),
+            ],
+          ),
         ),
         _centralIcon(),
         InkWell(
+          onTap: _showSpeedModal,
           child: Column(
             children: [
               const Icon(Icons.speed, color: Colors.grey),
@@ -257,7 +278,6 @@ class _YtWidgetState extends State<YtVideoWidget>
                   }),
             ],
           ),
-          onTap: () => _showSpeedModal(),
         )
       ],
     );
@@ -278,6 +298,14 @@ class _YtWidgetState extends State<YtVideoWidget>
         context: context,
         builder: (context) {
           return SpeedWidget(widget._audioHandler);
+        });
+  }
+
+  Future<void> _showSleepTimerModal() async {
+    return showModalBottomSheet(
+        context: context,
+        builder: (context) {
+          return SleepTimerWidget(widget._audioHandler);
         });
   }
 

@@ -14,7 +14,8 @@ import 'global.dart';
 final logger = Logger();
 
 void main() async {
-  AppMetrica.activate(amConfig);
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppMetrica.activate(amConfig);
 
   var _audioHandler = await AudioService.init(
     builder: () => AudioPlayerHandler(),
