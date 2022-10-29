@@ -28,15 +28,21 @@ class _SleepTimerWidgetState extends State<SleepTimerWidget> {
       },
       child: Container(
         height: 350,
+        padding: EdgeInsets.all(24),
         color: Colors.white60,
-        child: Center(
-          child: DurationPicker(
-            duration: _duration,
-            onChange: (val) {
-              setState(() => _duration = val);
-            },
-            snapToMins: 5.0,
-          ),
+        child: Column(
+          children: [
+            const Text("Таймер сна"),
+            Center(
+              child: DurationPicker(
+                duration: _duration,
+                onChange: (val) {
+                  setState(() => _duration = val);
+                },
+                snapToMins: 5.0,
+              ),
+            ),
+          ],
         ),
       ),
     );

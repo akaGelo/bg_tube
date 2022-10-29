@@ -73,6 +73,8 @@ class LoadingWidgetState extends State<LoadingWidget>
   }
 
   Future<void> showVideoPlayer(Video video) async {
+    Future.delayed(Duration(seconds: 2),
+        () => _setIncomeUrl(null)); // через 2 секунды сбрасываем url
     var result = await Navigator.push(
         context,
         PageTransition(
@@ -85,10 +87,6 @@ class LoadingWidgetState extends State<LoadingWidget>
               widget._audioHandler,
               key: ValueKey(video),
             )));
-
-    if (AudioProcessingState.completed == result) {
-      _setIncomeUrl(null);
-    }
     logger.w("Video player closed $result");
   }
 

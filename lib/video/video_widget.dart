@@ -8,6 +8,7 @@ import 'package:bg_tube/video/sleeptimer_widget.dart';
 import 'package:bg_tube/video/speed_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:logger/logger.dart';
 import 'package:move_to_background/move_to_background.dart';
 import 'package:rxdart/rxdart.dart' show Rx;
@@ -32,12 +33,13 @@ class YtVideoWidget extends StatefulWidget {
 }
 
 class _YtWidgetState extends State<YtVideoWidget>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late StreamSubscription<PlaybackState> _stateListener;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance!.addObserver(this);
     widget._audioHandler.playAudio(widget.video);
     _stateListener = widget._audioHandler.playbackState.stream.listen((event) {
       if (event.processingState == AudioProcessingState.idle &&
@@ -46,6 +48,23 @@ class _YtWidgetState extends State<YtVideoWidget>
         Navigator.pop(context, AudioProcessingState.idle);
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      //при повторном открытии надо закрывтаь окно плеера. служба в фоне живет и состояние плеера сохранятся
+      // даже если смахнуть приложение
+      closeIfNotPlay();
+    }
+  }
+
+  Future<void> closeIfNotPlay() async {
+    var lastState = widget._audioHandler.lastState();
+    if (ProcessingState.completed  == lastState.processingState) {
+      widget._audioHandler.stop();
+    }
   }
 
   @override

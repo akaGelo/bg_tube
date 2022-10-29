@@ -27,6 +27,10 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
     _player.playbackEventStream.map(_transformEvent).pipe(playbackState);
   }
 
+  PlayerState lastState() {
+    return _player.playerState;
+  }
+
   @override
   Future<void> play() {
     AppMetrica.reportEvent('Start player');
@@ -104,7 +108,7 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
       'keywords': video.keywords
     });
 
-    await _player.setSkipSilenceEnabled(true);
+    // await _player.setSkipSilenceEnabled(true);
     var manifest = await _yt.videos.streamsClient.getManifest(video.id);
     var sortByBitrate = manifest.audioOnly.sortByBitrate();
     var audio = await sortByBitrate.last;
