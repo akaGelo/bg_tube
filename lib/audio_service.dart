@@ -37,6 +37,19 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> setSpeed(double speed) => _player.setSpeed(speed);
 
+  Future<void> moveToLeft() {
+    var pos = _player.position.inSeconds - 10;
+    if (pos < 0) {
+      pos = 0;
+    }
+    return _player.seek(Duration(seconds: pos));
+  }
+
+  Future<void> moveToRight() {
+    var pos = _player.position.inSeconds + 10;
+    return _player.seek(Duration(seconds: pos));
+  }
+
   Future<void> playAudio(Video video) async {
     var manifest = await _yt.videos.streamsClient.getManifest(video.id);
     var sortByBitrate = manifest.audioOnly.sortByBitrate();

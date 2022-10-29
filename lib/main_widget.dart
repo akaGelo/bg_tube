@@ -58,7 +58,7 @@ class LoadingWidgetState extends State<LoadingWidget>
     }
     widget._audioHandler.stop();
 
-    Future.delayed(Duration(seconds: 1), () async {
+    Future.delayed(const Duration(seconds: 1), () async {
       try {
         var video = await YoutubeExplode().videos.get(value);
         await precacheImage(
@@ -77,7 +77,7 @@ class LoadingWidgetState extends State<LoadingWidget>
         PageTransition(
             type: PageTransitionType.scale,
             alignment: Alignment.topCenter,
-            duration: Duration(milliseconds: 700),
+            duration: Duration(milliseconds: 500),
             reverseDuration: Duration(milliseconds: 500),
             child: YtVideoWidget(
               video,
@@ -89,12 +89,11 @@ class LoadingWidgetState extends State<LoadingWidget>
   }
 
   bool _setIncomeUrl(String? value) {
-    bool r = _incomeUrl != value;
+    bool isChange = _incomeUrl != value;
     setState(() {
       _incomeUrl = value;
     });
-
-    return r;
+    return isChange;
   }
 
   @override

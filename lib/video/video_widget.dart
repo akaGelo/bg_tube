@@ -3,18 +3,16 @@ import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:bg_tube/ext/yt_ext.dart';
 import 'package:bg_tube/video/speed_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:drop_shadow_image/drop_shadow_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:logger/logger.dart';
 import 'package:move_to_background/move_to_background.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../audio_service.dart';
 
@@ -74,23 +72,30 @@ class _YtWidgetState extends State<YtVideoWidget>
           child: const Icon(Icons.u_turn_left_sharp),
         ),
         body: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Column(
             children: <Widget>[
               _coverWidget(),
-              AutoSizeText(widget.video.title,
-                  maxLines: 3,
-                  style: Theme.of(context).textTheme.headline5,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              AutoSizeText(widget.video.author,
-                  maxLines: 1,
-                  style: Theme.of(context).textTheme.headline6,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              _buttonsRow(context),
-              _audioPprogress(),
-              const SizedBox(height: 20)
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    AutoSizeText(widget.video.title,
+                        maxLines: 3,
+                        style: Theme.of(context).textTheme.headline5,
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    AutoSizeText(widget.video.author,
+                        maxLines: 1,
+                        style: Theme.of(context).textTheme.headline6,
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 20),
+                    _buttonsRow(context),
+                    _audioPprogress(),
+                    const SizedBox(height: 20)
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -99,24 +104,71 @@ class _YtWidgetState extends State<YtVideoWidget>
   }
 
   Widget _coverWidget() {
-    return Container(
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          width: double.infinity,
-          child: CachedNetworkImage(
-            imageUrl: widget.video.thumbnails.standardResUrl,
-            imageBuilder: (context, imageProvider) => DropShadowImage(
-              offset: Offset(0, 2),
-              scale: 1,
-              blurRadius: 4,
-              borderRadius: 8,
-              image: Image(
-                image: imageProvider,
+    var width = MediaQuery.of(context).size.width;
+
+    var height = (width * 9) / 16;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.5),
+                spreadRadius: 5,
+                blurRadius: 7,
+                offset: Offset(0, 4),
               ),
+            ],
+            image: DecorationImage(
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.topCenter,
+              image: CachedNetworkImageProvider(
+                  widget.video.thumbnails.noBorderPreview),
             ),
           ),
+        ),
+        Positioned(
+            left: -width / 4,
+            child: _moveButto(
+                width,
+                height,
+                Icons.keyboard_double_arrow_left_rounded,
+                EdgeInsets.only(left: width / 4),
+                () => widget._audioHandler.moveToLeft())),
+        Positioned(
+            right: -width / 4,
+            child: _moveButto(
+                width,
+                height,
+                Icons.keyboard_double_arrow_right_rounded,
+                EdgeInsets.only(right: width / 4),
+                () => widget._audioHandler.moveToRight())),
+      ],
+    );
+  }
+
+  ClipOval _moveButto(
+      double width, double height, IconData icon, EdgeInsets edge, onTap) {
+    return ClipOval(
+      child: Material(
+        color: Colors.white12, // Button color
+        child: InkWell(
+          splashColor: Colors.white60, // Splash color
+          onTap: onTap,
+          child: SizedBox(
+              width: width / 1.5,
+              height: height * 2,
+              child: Padding(
+                padding: edge,
+                child: Icon(
+                  icon,
+                  color: Colors.white60,
+                  size: 64,
+                ),
+              )),
         ),
       ),
     );
