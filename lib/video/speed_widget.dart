@@ -30,9 +30,9 @@ class _SpeedWidgetState extends State<SpeedWidget> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("-3"),
-                  Text("0"),
-                  Text("+3"),
+                  Text("-2"),
+                  Text("Скорость"),
+                  Text("+2"),
                 ],
               ),
             ),
@@ -43,8 +43,8 @@ class _SpeedWidgetState extends State<SpeedWidget> {
                 builder: (context, snapshot) {
                   double rate = snapshot.data ?? 1.0;
                   return Slider(
-                    min: -3,
-                    max: 4,
+                    min: -2,
+                    max: 2,
                     value: rate,
                     onChanged: widget._audioHandler.setSpeed,
                   );

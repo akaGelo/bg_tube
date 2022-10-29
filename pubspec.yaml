@@ -26,6 +26,8 @@ dependencies:
   avatar_glow: ^2.0.2
   animated_text_kit: ^4.2.2
   url_launcher: ^6.1.6
+  page_transition: ^2.0.9
+  logger: ^1.1.0
 
 dependency_overrides:
   yaml: ^3.1.1

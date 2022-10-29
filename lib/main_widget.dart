@@ -6,23 +6,27 @@ import 'package:bg_tube/placeholder/placeholder_widget.dart';
 import 'package:bg_tube/video/video_widget.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:move_to_background/move_to_background.dart';
+import 'package:page_transition/page_transition.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import 'audio_service.dart';
 
+final logger = Logger();
+
 @immutable
-class MainWidget extends StatefulWidget {
+class LoadingWidget extends StatefulWidget {
   final AudioPlayerHandler _audioHandler;
 
-  const MainWidget(this._audioHandler, {Key? key}) : super(key: key);
+  const LoadingWidget(this._audioHandler, {Key? key}) : super(key: key);
 
   @override
-  MainWidgetState createState() => MainWidgetState();
+  LoadingWidgetState createState() => LoadingWidgetState();
 }
 
-class MainWidgetState extends State<MainWidget>
+class LoadingWidgetState extends State<LoadingWidget>
     with SingleTickerProviderStateMixin {
   String? _incomeUrl; //ссылка из диалога поделиться
 
@@ -30,11 +34,11 @@ class MainWidgetState extends State<MainWidget>
   void initState() {
     super.initState();
 
-    ReceiveSharingIntent.getInitialText() // on start app
+    ReceiveSharingIntent.getInitialText() // для открытого приложения
         .asStream()
         .listen(setIncomeLink, onError: showError);
 
-    ReceiveSharingIntent.getTextStream() //for started app
+    ReceiveSharingIntent.getTextStream() //для запуска
         .listen(setIncomeLink, onError: showError);
   }
 
@@ -48,34 +52,49 @@ class MainWidgetState extends State<MainWidget>
     if (null == value) {
       return;
     }
-    if (null != _incomeUrl) {
-      //уже что то слушает, надо закрыть плеер
-      Navigator.pop(context, true);
+    if (!_setIncomeUrl(value)) {
+      //нет изменений
+      return;
     }
+    widget._audioHandler.stop();
 
+    Future.delayed(Duration(seconds: 1), () async {
+      try {
+        var video = await YoutubeExplode().videos.get(value);
+        await precacheImage(
+            CachedNetworkImageProvider(video.thumbnails.standardResUrl),
+            context);
+        await showVideoPlayer(video);
+      } catch (e) {
+        showError(e);
+      }
+    });
+  }
+
+  Future<void> showVideoPlayer(Video video) async {
+    var result = await Navigator.push(
+        context,
+        PageTransition(
+            type: PageTransitionType.scale,
+            alignment: Alignment.topCenter,
+            duration: Duration(milliseconds: 700),
+            reverseDuration: Duration(milliseconds: 500),
+            child: YtVideoWidget(
+              video,
+              widget._audioHandler,
+              key: ValueKey(video),
+            )));
+
+    logger.w("Wideo player closed $result");
+  }
+
+  bool _setIncomeUrl(String? value) {
+    bool r = _incomeUrl != value;
     setState(() {
       _incomeUrl = value;
     });
 
-    try {
-      var video = await YoutubeExplode().videos.get(value);
-
-      var result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) =>
-                Scaffold(body: YtVideoWidget(video, widget._audioHandler))),
-      );
-
-      if (null == result) {
-        // это замена плеера
-        setState(() {
-          _incomeUrl = null;
-        });
-      }
-    } catch (e) {
-      showError(e);
-    }
+    return r;
   }
 
   @override

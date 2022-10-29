@@ -9,6 +9,8 @@ import 'package:drop_shadow_image/drop_shadow_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:logger/logger.dart';
 import 'package:move_to_background/move_to_background.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
@@ -18,6 +20,10 @@ import '../audio_service.dart';
 
 // import 'audio_service_common.dart';
 // import 'main3.dart';
+
+final logger = Logger();
+
+const int exitErrorCode = -1;
 
 class YtVideoWidget extends StatefulWidget {
   Video video;
@@ -31,18 +37,65 @@ class YtVideoWidget extends StatefulWidget {
 
 class _YtWidgetState extends State<YtVideoWidget>
     with SingleTickerProviderStateMixin {
-  late AnimationController _playPauseAnimationController;
+  late StreamSubscription<PlaybackState> stateListener;
 
   @override
   void initState() {
     super.initState();
     widget._audioHandler.playAudio(widget.video);
+    stateListener = widget._audioHandler.playbackState.stream.listen((event) {
+      if (event.processingState == AudioProcessingState.idle &&
+          event.position.inSeconds > 1) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   @override
   void dispose() {
-    _playPauseAnimationController.dispose();
     super.dispose();
+    stateListener.cancel();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        MoveToBackground.moveTaskToBack();
+        return false;
+      },
+      child: Scaffold(
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            MoveToBackground.moveTaskToBack();
+            // Navigator.pop(context);
+          },
+          tooltip: 'Back ',
+          child: const Icon(Icons.u_turn_left_sharp),
+        ),
+        body: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Column(
+            children: <Widget>[
+              _coverWidget(),
+              AutoSizeText(widget.video.title,
+                  maxLines: 3,
+                  style: Theme.of(context).textTheme.headline5,
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              AutoSizeText(widget.video.author,
+                  maxLines: 1,
+                  style: Theme.of(context).textTheme.headline6,
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              _buttonsRow(context),
+              _audioPprogress(),
+              const SizedBox(height: 20)
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _coverWidget() {
@@ -82,6 +135,7 @@ class _YtWidgetState extends State<YtVideoWidget>
       child: StreamBuilder<PlaybackState>(
         stream: widget._audioHandler.playbackState,
         builder: (context, snapshot) {
+          //TODO переписать срамоту
           if (null == snapshot.data) {
             return _loadingIndicator();
           }
@@ -106,41 +160,6 @@ class _YtWidgetState extends State<YtVideoWidget>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          MoveToBackground.moveTaskToBack();
-          // Navigator.pop(context);
-        },
-        tooltip: 'Back ',
-        child: const Icon(Icons.u_turn_left_sharp),
-      ),
-      body: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Column(
-          children: <Widget>[
-            _coverWidget(),
-            AutoSizeText(widget.video.title,
-                maxLines: 3,
-                style: Theme.of(context).textTheme.headline5,
-                textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            AutoSizeText(widget.video.author,
-                maxLines: 1,
-                style: Theme.of(context).textTheme.headline6,
-                textAlign: TextAlign.center),
-            const SizedBox(height: 20),
-            _buttons_row(context),
-            _audioPprogress(),
-            const SizedBox(height: 20)
-          ],
-        ),
-      ),
-    );
-  }
-
   StreamBuilder<PositionData> _audioPprogress() {
     return StreamBuilder<PositionData>(
       stream: _mediaStateStream,
@@ -158,7 +177,7 @@ class _YtWidgetState extends State<YtVideoWidget>
     );
   }
 
-  Row _buttons_row(BuildContext context) {
+  Row _buttonsRow(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -172,7 +191,7 @@ class _YtWidgetState extends State<YtVideoWidget>
         InkWell(
           child: Column(
             children: [
-              Icon(Icons.speed, color: Colors.grey),
+              const Icon(Icons.speed, color: Colors.grey),
               StreamBuilder<double>(
                   stream: widget._audioHandler.playbackState
                       .map((state) => state.speed)

@@ -4,7 +4,10 @@ import 'package:avatar_glow/avatar_glow.dart';
 import 'package:drop_shadow_image/drop_shadow_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:logger/logger.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+final logger = Logger();
 
 @immutable
 class PlaceholderVideoWidget extends StatefulWidget {
@@ -23,12 +26,12 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
       child: Column(
         children: [
           const SizedBox(height: 32),
-          welcomeImage(),
+          _welcomeImage(),
           Expanded(
             flex: 2,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: centerText(context),
+              child: _centerText(context),
             ),
           ),
         ],
@@ -36,7 +39,7 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
     );
   }
 
-  Widget welcomeImage() {
+  Widget _welcomeImage() {
     double imageHeight() {
       int f = null != widget.incomeUrl ? 4 : 2;
       return MediaQuery.of(context).size.height / f;
@@ -46,7 +49,7 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
       onTap: () {
         setState(() {
           if (null == widget.incomeUrl) {
-            widget.incomeUrl = "text";
+            widget.incomeUrl = "https://youtu.be/VX2HbwugAoE";
           } else {
             widget.incomeUrl = null;
           }
@@ -58,10 +61,10 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            Container(
+            SizedBox(
                 width: double.infinity,
                 child: Center(
-                    child: new Image.asset('assets/placeholder.png',
+                    child: Image.asset('assets/placeholder.png',
                         width: double.infinity, height: double.infinity))),
             if (null == widget.incomeUrl)
               Positioned(
@@ -70,7 +73,6 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
                   glowColor: Colors.red,
                   endRadius: 90.0,
                   duration: Duration(milliseconds: 2000),
-                  repeat: true,
                   startDelay: Duration(milliseconds: 1000),
                   showTwoGlows: true,
                   repeatPauseDuration: Duration(milliseconds: 100),
@@ -83,8 +85,8 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
     );
   }
 
-  Widget centerText(BuildContext context) {
-    Widget lessenText() {
+  Widget _centerText(BuildContext context) {
+    Widget _lessenText() {
       return Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -102,7 +104,8 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
                 ),
                 TextButton(
                   onPressed: () {
-                    launchUrl(Uri.parse("vnd.youtube://"),mode: LaunchMode.externalApplication);
+                    launchUrl(Uri.parse("vnd.youtube://"),
+                        mode: LaunchMode.externalApplication);
                   },
                   child: Text(
                     'YouTube',
@@ -139,35 +142,36 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
           ]);
     }
 
-    Widget incomeUrlText(incomeUrl) {
+    Widget _incomeUrlText(incomeUrl) {
       return Column(
           key: ValueKey(incomeUrl),
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 60),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text("Загружаем", style: Theme.of(context).textTheme.headline4),
-                SizedBox(
-                  width: 30,
-                  child: DefaultTextStyle(
-                    style: Theme.of(context).textTheme.headline4!,
-                    child: AnimatedTextKit(repeatForever: true, animatedTexts: [
-                      FadeAnimatedText('.'),
-                      FadeAnimatedText('..'),
-                      FadeAnimatedText('...'),
-                    ]),
-                  ),
-                )
-              ],
-            ),
-            const SizedBox(height: 24),
-            AutoSizeText(incomeUrl!,
+            AutoSizeText("Загружаем",
                 maxLines: 2,
                 style: Theme.of(context).textTheme.headline5,
                 textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                DefaultTextStyle(
+                  style: Theme.of(context).textTheme.headline4!,
+                  child: AnimatedTextKit(repeatForever: true, animatedTexts: [
+                    TypewriterAnimatedText(
+                      widget.incomeUrl!,
+                      textStyle: const TextStyle(
+                        fontSize: 14.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      speed: const Duration(milliseconds: 100),
+                    ),
+                  ]),
+                )
+              ],
+            ),
           ]);
     }
 
@@ -176,8 +180,8 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
       switchInCurve: Curves.easeIn,
       switchOutCurve: Curves.easeIn,
       child: (null == widget.incomeUrl)
-          ? lessenText()
-          : incomeUrlText(widget.incomeUrl),
+          ? _lessenText()
+          : _incomeUrlText(widget.incomeUrl),
     );
   }
 }

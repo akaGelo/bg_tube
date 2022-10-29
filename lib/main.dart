@@ -1,11 +1,14 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:move_to_background/move_to_background.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import 'audio_service.dart';
 import 'main_widget.dart';
+
+final logger = Logger();
 
 void main() async {
   var _audioHandler = await AudioService.init(
@@ -16,7 +19,7 @@ void main() async {
       androidNotificationOngoing: true,
     ),
   );
-
+  logger.i("Start applicationl");
   runApp(BgTubeApp(_audioHandler));
 }
 
@@ -47,7 +50,7 @@ class BgTubeApp extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.amber,
         ),
-        home: MainWidget(_audioHandler),
+        home: LoadingWidget(_audioHandler),
       ),
     );
   }
