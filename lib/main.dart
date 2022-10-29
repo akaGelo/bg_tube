@@ -25,7 +25,7 @@ void main() async {
       androidNotificationOngoing: true,
     ),
   );
-  logger.i("Start applicationl");
+  logger.i("Start application");
   runApp(BgTubeApp(_audioHandler));
 }
 

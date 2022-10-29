@@ -33,6 +33,12 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
     return _player.play();
   }
 
+  Future<void> playFromStart() async {
+    AppMetrica.reportEvent('Start player');
+    await _player.seek(Duration.zero);
+    return _player.play();
+  }
+
   @override
   Future<void> pause() {
     AppMetrica.reportEvent('Pause player');
@@ -40,7 +46,8 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
   }
 
   void pauseAfterDelay(Duration duration) {
-    AppMetrica.reportEventWithMap('Pause pause after delay', {'duration': duration.inMinutes});
+    AppMetrica.reportEventWithMap(
+        'Pause pause after delay', {'duration': duration.inMinutes});
     _sleepTimer?.cancel();
 
     if (duration.inSeconds < 1) {
@@ -96,6 +103,8 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
       'title': video.title,
       'keywords': video.keywords
     });
+
+    await _player.setSkipSilenceEnabled(true);
     var manifest = await _yt.videos.streamsClient.getManifest(video.id);
     var sortByBitrate = manifest.audioOnly.sortByBitrate();
     var audio = await sortByBitrate.last;

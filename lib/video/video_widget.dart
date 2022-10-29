@@ -4,21 +4,16 @@ import 'package:audio_service/audio_service.dart';
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:bg_tube/ext/yt_ext.dart';
-import 'package:bg_tube/video/speed_widget.dart';
 import 'package:bg_tube/video/sleeptimer_widget.dart';
+import 'package:bg_tube/video/speed_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
 import 'package:move_to_background/move_to_background.dart';
-import 'package:rxdart/rxdart.dart';
+import 'package:rxdart/rxdart.dart' show Rx;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../audio_service.dart';
-
-// import 'audio_service_common.dart';
-// import 'main3.dart';
 
 final logger = Logger();
 
@@ -47,6 +42,7 @@ class _YtWidgetState extends State<YtVideoWidget>
     _stateListener = widget._audioHandler.playbackState.stream.listen((event) {
       if (event.processingState == AudioProcessingState.idle &&
           event.position.inSeconds > 1) {
+        //пришла новая ссылка -> нажата кнопка стоп после начала
         Navigator.pop(context, AudioProcessingState.idle);
       }
     });
@@ -67,9 +63,7 @@ class _YtWidgetState extends State<YtVideoWidget>
       },
       child: Scaffold(
         floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            MoveToBackground.moveTaskToBack();
-          },
+          onPressed: _goToBackground,
           tooltip: 'Back ',
           child: const Icon(Icons.u_turn_left_sharp),
         ),
@@ -83,25 +77,12 @@ class _YtWidgetState extends State<YtVideoWidget>
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
-                    AutoSizeText(widget.video.title,
-                        maxLines: 3,
-                        style: Theme.of(context).textTheme.headline5,
-                        textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    AutoSizeText(widget.video.author,
-                        maxLines: 1,
-                        style: Theme.of(context).textTheme.headline6,
-                        textAlign: TextAlign.center),
+                    ..._titles(),
                     const SizedBox(height: 20),
-                    _buttonsRow(context),
+                    _actionButtonsRow(context),
                     _audioProgress(),
                     const SizedBox(height: 8),
-                    Expanded(
-                        child: SingleChildScrollView(
-                            child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Text(widget.video.description),
-                    ))),
+                    _videoDescription(),
                   ],
                 ),
               ),
@@ -112,9 +93,31 @@ class _YtWidgetState extends State<YtVideoWidget>
     );
   }
 
+  List<Widget> _titles() {
+    return <Widget>[
+      AutoSizeText(widget.video.title,
+          maxLines: 3,
+          style: Theme.of(context).textTheme.headline5,
+          textAlign: TextAlign.center),
+      const SizedBox(height: 16),
+      AutoSizeText(widget.video.author,
+          maxLines: 1,
+          style: Theme.of(context).textTheme.headline6,
+          textAlign: TextAlign.center)
+    ];
+  }
+
+  Expanded _videoDescription() {
+    return Expanded(
+        child: SingleChildScrollView(
+            child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Text(widget.video.description),
+    )));
+  }
+
   Widget _coverWidget() {
     var width = MediaQuery.of(context).size.width;
-
     var height = (width * 9) / 16;
     return Stack(
       alignment: Alignment.center,
@@ -183,42 +186,67 @@ class _YtWidgetState extends State<YtVideoWidget>
     );
   }
 
-  IconButton _button(IconData iconData, VoidCallback onPressed) => IconButton(
+  Widget _button(IconData iconData, VoidCallback onPressed) {
+    return SizedBox(
+      height: 64,
+      width: 64,
+      child: IconButton(
         icon: Icon(iconData),
-        iconSize: 64.0,
+        color: Colors.black87,
+        iconSize: 48.0,
         onPressed: onPressed,
-      );
+      ),
+    );
+  }
 
-  Widget _centralIcon() {
+  Widget _playPauseLoadingIcon() {
     return SizedBox(
       height: 64,
       width: 80,
       child: StreamBuilder<PlaybackState>(
-        stream: widget._audioHandler.playbackState,
-        builder: (context, snapshot) {
-          //TODO переписать срамоту
-          if (null == snapshot.data) {
-            return _loadingIndicator();
-          }
-          bool playing = snapshot.data!.playing;
+          stream: widget._audioHandler.playbackState,
+          builder: (context, snapshot) {
+            bool playing = snapshot.data?.playing ?? false;
+            AudioProcessingState state = snapshot.data?.processingState ??
+                AudioProcessingState.buffering;
+            logger.i("state $state");
+            if (state == AudioProcessingState.buffering ||
+                state == AudioProcessingState.loading ||
+                state == AudioProcessingState.idle) {
+              return _bufferingIndicator();
+            }
+            if (playing) {
+              if (state == AudioProcessingState.completed) {
+                return _button(
+                    Icons.refresh, widget._audioHandler.playFromStart);
+              } else {
+                return _button(Icons.pause, widget._audioHandler.pause);
+              }
+            } else {
+              return _button(Icons.play_arrow, widget._audioHandler.play);
+            }
+          }),
+    );
+  }
 
-          var processingState =
-              snapshot.data!.processingState ?? AudioProcessingState.idle;
-          if (AudioProcessingState.ready != processingState) {
-            return _loadingIndicator();
-          }
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (playing)
-                _button(Icons.pause, widget._audioHandler.pause)
-              else
-                _button(Icons.play_arrow, widget._audioHandler.play),
-            ],
-          );
-        },
+  Widget _bufferingIndicator() {
+    return const SizedBox(
+      height: 64,
+      child: Padding(
+        padding: EdgeInsets.all(8.0),
+        child: Center(child: CircularProgressIndicator()),
       ),
     );
+  }
+
+  Stream<PositionData> get _mediaStateStream {
+    return Rx.combineLatest3<MediaItem?, PlaybackState, Duration, PositionData>(
+        widget._audioHandler.mediaItem,
+        widget._audioHandler.playbackState,
+        AudioService.position, (mediaItem, playbackState, position) {
+      return PositionData(
+          position, playbackState.bufferedPosition, mediaItem!.duration);
+    });
   }
 
   StreamBuilder<PositionData> _audioProgress() {
@@ -238,59 +266,53 @@ class _YtWidgetState extends State<YtVideoWidget>
     );
   }
 
-  Row _buttonsRow(BuildContext context) {
+  Row _actionButtonsRow(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        InkWell(
-          onTap: _showSleepTimerModal,
-          child: Column(
-            children: [
-              const Icon(Icons.timer, color: Colors.grey),
-              StreamBuilder<Duration>(
-                  stream: widget._audioHandler.sleepTimerState,
-                  builder: (context, snapshot) {
-                    final duration = snapshot.data ?? Duration.zero;
-                    return Text(
-                      duration.inMinuteFormat,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    );
-                  }),
-            ],
-          ),
-        ),
-        _centralIcon(),
-        InkWell(
-          onTap: _showSpeedModal,
-          child: Column(
-            children: [
-              const Icon(Icons.speed, color: Colors.grey),
-              StreamBuilder<double>(
-                  stream: widget._audioHandler.playbackState
-                      .map((state) => state.speed)
-                      .distinct(),
-                  builder: (context, snapshot) {
-                    final speed = snapshot.data ?? 0;
-                    return Text(
-                      speed.toStringAsFixed(2),
-                      style: Theme.of(context).textTheme.labelSmall,
-                    );
-                  }),
-            ],
-          ),
-        )
-      ],
+      children: [_sleepTimerIcon(), _playPauseLoadingIcon(), _speedIcon()],
     );
   }
 
-  Stream<PositionData> get _mediaStateStream {
-    return Rx.combineLatest3<MediaItem?, PlaybackState, Duration, PositionData>(
-        widget._audioHandler.mediaItem,
-        widget._audioHandler.playbackState,
-        AudioService.position, (mediaItem, playbackState, position) {
-      return PositionData(
-          position, playbackState.bufferedPosition, mediaItem!.duration);
-    });
+  InkWell _sleepTimerIcon() {
+    return InkWell(
+      onTap: _showSleepTimerModal,
+      child: Column(
+        children: [
+          const Icon(Icons.timer, color: Colors.grey),
+          StreamBuilder<Duration>(
+              stream: widget._audioHandler.sleepTimerState,
+              builder: (context, snapshot) {
+                final duration = snapshot.data ?? Duration.zero;
+                return Text(
+                  duration.inMinuteFormat,
+                  style: Theme.of(context).textTheme.labelSmall,
+                );
+              }),
+        ],
+      ),
+    );
+  }
+
+  InkWell _speedIcon() {
+    return InkWell(
+      onTap: _showSpeedModal,
+      child: Column(
+        children: [
+          const Icon(Icons.speed, color: Colors.grey),
+          StreamBuilder<double>(
+              stream: widget._audioHandler.playbackState
+                  .map((state) => state.speed)
+                  .distinct(),
+              builder: (context, snapshot) {
+                final speed = snapshot.data ?? 0;
+                return Text(
+                  speed.toStringAsFixed(2),
+                  style: Theme.of(context).textTheme.labelSmall,
+                );
+              }),
+        ],
+      ),
+    );
   }
 
   Future<void> _showSpeedModal() async {
@@ -309,10 +331,7 @@ class _YtWidgetState extends State<YtVideoWidget>
         });
   }
 
-  Widget _loadingIndicator() {
-    return SizedBox(
-      height: 64,
-      child: Center(child: CircularProgressIndicator()),
-    );
+  Future<void> _goToBackground() async {
+    return MoveToBackground.moveTaskToBack();
   }
 }
