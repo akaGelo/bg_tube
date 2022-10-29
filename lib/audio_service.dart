@@ -1,3 +1,4 @@
+import 'package:appmetrica_plugin/appmetrica_plugin.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:youtube_explode_dart/src/videos/video.dart';
@@ -20,22 +21,32 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() {
+    AppMetrica.reportEvent('Start player');
+    return _player.play();
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() {
+    AppMetrica.reportEvent('Pause player');
+    return _player.pause();
+  }
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future<void> stop() async {
+    AppMetrica.reportEvent('Stop player');
     await _player.stop();
     return _player.seek(Duration.zero);
   }
 
   @override
-  Future<void> setSpeed(double speed) => _player.setSpeed(speed);
+  Future<void> setSpeed(double speed) {
+    AppMetrica.reportEventWithMap('Set speed', {'speed': speed});
+    return _player.setSpeed(speed);
+  }
 
   Future<void> moveToLeft() {
     var pos = _player.position.inSeconds - 10;
@@ -51,6 +62,12 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
   }
 
   Future<void> playAudio(Video video) async {
+    AppMetrica.reportEventWithMap('Play audio', {
+      'url': video.url,
+      'author': video.author,
+      'title': video.title,
+      'keywords': video.keywords
+    });
     var manifest = await _yt.videos.streamsClient.getManifest(video.id);
     var sortByBitrate = manifest.audioOnly.sortByBitrate();
     var audio = await sortByBitrate.last;

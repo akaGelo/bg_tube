@@ -1,6 +1,7 @@
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:avatar_glow/avatar_glow.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
@@ -24,13 +25,16 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
     return Center(
       child: Column(
         children: [
-          const SizedBox(height: 32),
+          const SizedBox(height: 48),
           _welcomeImage(),
+          const SizedBox(height: 32),
           Expanded(
             flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: _centerText(context),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                child: _centerText(context),
+              ),
             ),
           ),
         ],
@@ -45,18 +49,10 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
     }
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (null == widget.incomeUrl) {
-            widget.incomeUrl = "https://youtu.be/VX2HbwugAoE";
-          } else {
-            widget.incomeUrl = null;
-          }
-        });
-      },
+      onTap: _mockPlaceholderStateChange,
       child: AnimatedContainer(
         height: imageHeight(),
-        duration: Duration(milliseconds: 300),
+        duration: Duration(milliseconds: 400),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -67,12 +63,12 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
                         width: double.infinity, height: double.infinity))),
             if (null == widget.incomeUrl)
               Positioned(
-                bottom: 20.0,
+                bottom: -10,
                 child: AvatarGlow(
                   glowColor: Colors.red,
                   endRadius: 90.0,
                   duration: Duration(milliseconds: 2000),
-                  startDelay: Duration(milliseconds: 1000),
+                  startDelay: Duration(milliseconds: 3000),
                   showTwoGlows: true,
                   repeatPauseDuration: Duration(milliseconds: 100),
                   child: Container(),
@@ -182,5 +178,18 @@ class _PlaceholderVideoWidgetState extends State<PlaceholderVideoWidget> {
           ? _lessenText()
           : _incomeUrlText(widget.incomeUrl),
     );
+  }
+
+  void _mockPlaceholderStateChange() {
+    if (!kDebugMode) {
+      return;
+    }
+    setState(() {
+      if (null == widget.incomeUrl) {
+        widget.incomeUrl = "https://youtu.be/fA6vHhXdg38";
+      } else {
+        widget.incomeUrl = null;
+      }
+    });
   }
 }
